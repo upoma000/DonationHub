@@ -11,23 +11,33 @@ if (isset($_SESSION['user'])) {
 $error = "";
 
 if (isset($_POST['login'])) {
-    $name = trim($_POST['name']);
-    $pass = $_POST['password'];
+    $name = trim($_POST['name'] ?? '');
+    $pass = $_POST['password'] ?? '';
 
-    $stmt = $conn->prepare("SELECT * FROM User_T WHERE UserName = ? AND UserPassword = ?");
-    $stmt->bind_param("ss", $name, $pass);
-    $stmt->execute();
-    $res = $stmt->get_result();
-
-    if ($res->num_rows > 0) {
+    try {
+        $stmt = $conn->prepare("SELECT UserID, UserName, UserPassword, UserRole FROM User_T WHERE UserName = ? LIMIT 1");
+        $stmt->bind_param("s", $name);
+        $stmt->execute();
+        $res = $stmt->get_result();
         $row = $res->fetch_assoc();
-        $_SESSION['user'] = $row;
-        header("Location: " . ($row['UserRole'] === 'admin' ? 'admin.php' : 'user.php'));
-        exit();
-    } else {
+
+        $passwordMatches = $row && (
+            $pass === $row['UserPassword'] ||
+            password_verify($pass, $row['UserPassword'])
+        );
+
+        if ($passwordMatches) {
+            unset($row['UserPassword']);
+            $_SESSION['user'] = $row;
+            header("Location: " . ($row['UserRole'] === 'admin' ? 'admin.php' : 'user.php'));
+            exit();
+        }
+
         $error = "Invalid username or password.";
+        $stmt->close();
+    } catch (Throwable $e) {
+        $error = "Unable to log in right now. Please try again.";
     }
-    $stmt->close();
 }
 ?>
 <!DOCTYPE html>
@@ -223,7 +233,7 @@ if (isset($_POST['login'])) {
 
         <div class="demo-creds mb-3">
             <strong><i class="bi bi-info-circle me-1"></i> Demo Credentials</strong>
-            Admin: <code>admin</code> / <code>admin123</code> &nbsp;|&nbsp;
+            Admin: <code>admin</code> / <code>123</code> &nbsp;|&nbsp;
             User: <code>demo_user</code> / <code>user123</code>
         </div>
 
