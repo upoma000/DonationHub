@@ -1,5 +1,6 @@
 .git
 .gitignore
+.env
 cookies.txt
 test.php
 README.md
